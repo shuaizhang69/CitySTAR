@@ -1,0 +1,30 @@
+CityAnchor 代码包（cityanchor）
+================================
+
+根目录（本文件所在目录）结构：
+
+  data_construct_pipeline_Anchor/ — Anchor 侧数据构建流水线
+  new_code_for_Anchor/            — 主入口：01_Semantic_color_in_stage1_support_object_proximity_shrink.py
+  data/                           — **ND/NO 标注与颜色 JSON/JSONL**（见下）
+  superGraph_for_Anchor_fianl/    — 超图工具链（当前内容侧重 NO 划分）
+  superGraph_for_Anchor/          — 超图工具链；**ND 划分请从此目录读取/使用**
+
+data/ 目录内容
+--------------
+  data/CityAnchor/cityanchor_val_ND_0324.jsonl
+  data/city_Anchor/single_image_colors2_per_image_tier2.jsonl
+  data/city_Anchor/main_object_color_llm_rerun_object_name.json
+  data/city_Anchor/cityanchor_val_NO_*.jsonl（脚本候选列表中的 NO 划分）
+
+new_code_for_Anchor/01_Semantic_color_*.py 会优先使用 data/ 下路径，否则回退 Henry/dataset。
+
+bbox 目录未打包，默认仍为 Henry/dataset/CityAnchor/bbox，请自备或 --bbox-dir。
+
+依赖说明
+--------
+- 主脚本仅标准库；默认路径见上文。
+
+打包位置
+--------
+因无法在 /cityanchor 创建目录，本树位于：
+  /hpc2hdd/home/yxiao224/cityanchor

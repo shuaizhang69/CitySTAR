@@ -1,0 +1,14 @@
+numpy
+tqdm
+openai
+httpx
+Pillow
+PyYAML
+
+# Optional for DashScope reranking:
+# dashscope
+
+# Optional for SAM3 / point-cloud preprocessing:
+# torch
+# plyfile
+# open3d

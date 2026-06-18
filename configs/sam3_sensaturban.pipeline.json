@@ -1,0 +1,127 @@
+{
+  "name": "SAM3 SensatUrban upstream pipeline",
+  "dataset": "sam3_sensaturban",
+  "splits": ["ALL"],
+  "notes": [
+    "This config is the shared upstream path used to obtain SAM3 masks, semantic fusion, merged instances, and CityRefer-style bbox JSON.",
+    "It mirrors the small pipeline wrappers copied from /home/zhangshuai/workshop/open_vocabulary/LqhSpace/Stage1_code_result/sam3_segment. The SAM3 model package, checkpoints, raw point clouds, and generated masks are external assets.",
+    "Remote audit: use /mnt/shuaizhang_data/CityRefer_1/data or /mnt/shuaizhang_data/SensatUrban for server-side data; Stage1_code_result/data is a stale symlink."
+  ],
+  "stages": [
+    {
+      "name": "grid_split",
+      "description": "Split raw SensatUrban point clouds into 50m tiles.",
+      "script": "repo://city_pipeline/sam3_preprocess.py",
+      "inputs": [
+        {"path": "repo://data/raw/sensaturban/point_clouds", "kind": "dir"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/city_pipeline/sam3_preprocess.py",
+        "--input-dir", "{repo}/data/raw/sensaturban/point_clouds",
+        "--output-dir", "{repo}/outputs/sam3/sensaturban_50m_ply",
+        "--grid-size", "50.0",
+        "--voxel-size", "0.1"
+      ]
+    },
+    {
+      "name": "superpoints",
+      "description": "Generate NAG/superpoint artifacts for the tiled point clouds.",
+      "script": "repo://external/sam3_segment/core/cluster.py",
+      "inputs": [
+        {"path": "repo://outputs/sam3/sensaturban_50m_ply", "kind": "dir"},
+        {"path": "repo://data/raw/sam3/cluster_config.yaml", "kind": "file"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/external/sam3_segment/core/cluster.py",
+        "--config", "{repo}/data/raw/sam3/cluster_config.yaml"
+      ]
+    },
+    {
+      "name": "render_views",
+      "description": "Render BEV/tile views, depth, pose, and id buffers.",
+      "script": "repo://external/sam3_segment/core/renderer.py",
+      "inputs": [
+        {"path": "repo://outputs/sam3/sensaturban_50m_ply", "kind": "dir"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/external/sam3_segment/core/renderer.py",
+        "--input_folder", "{repo}/outputs/sam3/sensaturban_50m_ply",
+        "--output_root", "{repo}/outputs/sam3/render_out",
+        "--use_id_buffer"
+      ]
+    },
+    {
+      "name": "sam3_masks",
+      "description": "Run SAM3 over rendered views to generate 2D masks.",
+      "optional": true,
+      "script": "repo://external/sam3_segment/core/inference.py",
+      "inputs": [
+        {"path": "repo://outputs/sam3/render_out", "kind": "dir"},
+        {"path": "repo://external/sam3_segment/sam3", "kind": "dir"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/external/sam3_segment/core/inference.py",
+        "--render_root", "{repo}/outputs/sam3/render_out",
+        "--output_root", "{repo}/outputs/sam3/2d_mask_sam3",
+        "--mode", "all",
+        "--gpu", "0"
+      ]
+    },
+    {
+      "name": "semantic_fusion",
+      "description": "Fuse 2D SAM3 masks and superpoints back into 3D semantic fusion PLY files.",
+      "script": "repo://external/sam3_segment/core/fusion.py",
+      "inputs": [
+        {"path": "repo://outputs/sam3/nag_output", "kind": "dir"},
+        {"path": "repo://outputs/sam3/render_out", "kind": "dir"},
+        {"path": "repo://outputs/sam3/2d_mask_sam3", "kind": "dir"},
+        {"path": "repo://data/raw/sensaturban/point_clouds", "kind": "dir"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/external/sam3_segment/core/fusion.py",
+        "--parallel",
+        "--cluster_path", "{repo}/outputs/sam3/nag_output",
+        "--snap_root", "{repo}/outputs/sam3/render_out",
+        "--mask_root", "{repo}/outputs/sam3/2d_mask_sam3",
+        "--raw_ply_folder", "{repo}/data/raw/sensaturban/point_clouds",
+        "--output_root", "{repo}/outputs/sam3/fusion_results"
+      ]
+    },
+    {
+      "name": "merge_instances",
+      "description": "Merge over-segmented semantic instances.",
+      "script": "repo://external/sam3_segment/core/merge_oversegmented_instances.py",
+      "inputs": [
+        {"path": "repo://outputs/sam3/instances", "kind": "dir"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/external/sam3_segment/core/merge_oversegmented_instances.py",
+        "--save",
+        "--discover_all_scenes",
+        "--input_root", "{repo}/outputs/sam3/instances",
+        "--output_root", "{repo}/outputs/sam3/instances_merged_all"
+      ]
+    },
+    {
+      "name": "bbox_json",
+      "description": "Convert merged instance PLY files to CityRefer-style bbox JSON.",
+      "script": "repo://external/sam3_segment/tools/instances_ply_to_sensaturban_bbox.py",
+      "inputs": [
+        {"path": "repo://outputs/sam3/instances_merged_all", "kind": "dir"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/external/sam3_segment/tools/instances_ply_to_sensaturban_bbox.py",
+        "--input-dir", "{repo}/outputs/sam3/instances_merged_all",
+        "--output-dir", "{repo}/outputs/sam3/sensaturban_bbox",
+        "--recursive"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+CityRefer 代码包（cityrefer）
+==============================
+
+根目录（本文件所在目录）下为并列子目录，脚本之间使用相对路径即可互相引用：
+
+  pipeline2/              — CityRefer stage1 / rerank 等流水线
+  superGraph/             — 描述/实例超图与匹配（04_hypergraph_matchv2.py 同目录含 match_hypergraphs.py）
+  data/                   — **打包进来的 JSON/JSONL**：val 元数据、stage1 候选、描述/ bbox 超图、颜色 tier2、hgmatch_v2 结果等（见下）
+  data_construct_pipeline/ — 数据构建（NER、裁剪、颜色等）
+
+data/ 目录内容（相对本包根目录）
+--------------------------------
+  data/Cityrefer/meta_data/0311data/
+    CityRefer_val_ND_0324.jsonl
+    CityRefer_val_NO_0324.jsonl
+    CityRefer_val_ND_0421_stage1_candidates.jsonl
+    CityRefer_val_NO_0421_stage1_candidates.jsonl
+  data/Cityrefer/0311data/feature/all_objects_color_per_image_tier2.jsonl
+  data/Cityrefer/0412/desc/CityRefer_val_{ND,NO}_desc_hypergraphs.jsonl
+  data/Cityrefer/0412/desc_bbox_hypergraphs/CityRefer_val_*_bbox_only_hypergraphs.jsonl
+  data/Cityrefer/0412/hypergraph_match/CityRefer_val_*_hgmatch_v2.json
+
+pipeline2/01_Semantic_landmark_in_stage1_new.py 与 superGraph/04_hypergraph_matchv2.py 已设为：
+若存在上述 data/ 下文件则优先使用，否则回退到原 Henry/dataset 绝对路径。
+
+未随包提供的 JSON
+------------------
+  各场景的 *_bbox.json、*_bbox_landmark2.json 仍在 DEFAULT_BBOX_DIR（box3d）下，需自备或 --bbox-dir 指定。
+
+依赖说明
+--------
+- 04_hypergraph_matchv2.py：需 pip 安装 tqdm。
+
+打包位置
+--------
+因无法在 /cityrefer 创建目录，本树位于：
+  /hpc2hdd/home/yxiao224/cityrefer

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cityrefer-cityanchor-pipeline"
+version = "0.1.0"
+description = "Reproducible pipeline wrappers for CityRefer and CityAnchor experiments."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+dependencies = [
+  "numpy",
+  "tqdm",
+  "openai",
+  "httpx",
+  "Pillow",
+  "PyYAML",
+]
+
+[project.optional-dependencies]
+rerank = ["dashscope"]
+sam3 = ["torch", "plyfile", "open3d"]
+dev = []
+
+[project.scripts]
+city-pipeline = "city_pipeline.cli:main"
+
+[tool.setuptools]
+packages = ["city_pipeline"]

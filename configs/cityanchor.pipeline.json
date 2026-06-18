@@ -1,0 +1,128 @@
+{
+  "name": "CityAnchor full pipeline",
+  "dataset": "cityanchor",
+  "splits": ["ND", "NO"],
+  "notes": [
+    "CityAnchor uses a tighter color-aware stage1 candidate generator, bbox-only hypergraphs, geometry mentions, and the final v7 geometry-aware matcher.",
+    "The bundle includes ND/NO metadata and color files, but raw bbox JSON and generated desc/bbox hypergraphs are not bundled.",
+    "Remote audit: zhangshuai server has STPLS3D raw/txt data and one cityanchor_val_ND.json file, but the full final CityAnchor v7 workspace was not found."
+  ],
+  "stages": [
+    {
+      "name": "stage1_candidates",
+      "description": "Generate color-aware stage1 candidates.",
+      "script": "repo://cityanchor/new_code_for_Anchor/01_Semantic_color_in_stage1_support_object_proximity_shrink.py",
+      "inputs": [
+        {"path": "repo://cityanchor/data/{cityanchor_split_dir}/cityanchor_val_{split}_0324.jsonl", "kind": "file"},
+        {"path": "repo://cityanchor/data/city_Anchor/single_image_colors2_per_image_tier2.jsonl", "kind": "file"},
+        {"path": "repo://cityanchor/data/city_Anchor/main_object_color_llm_rerun_object_name.json", "kind": "file"},
+        {"path": "repo://data/raw/cityanchor/bbox", "kind": "dir"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/cityanchor/new_code_for_Anchor/01_Semantic_color_in_stage1_support_object_proximity_shrink.py",
+        "--dataset", "{split_lower}",
+        "--jsonl", "{repo}/cityanchor/data/{cityanchor_split_dir}/cityanchor_val_{split}_0324.jsonl",
+        "--bbox-dir", "{repo}/data/raw/cityanchor/bbox",
+        "--color-jsonl", "{repo}/cityanchor/data/city_Anchor/single_image_colors2_per_image_tier2.jsonl",
+        "--query-color-json", "{repo}/cityanchor/data/city_Anchor/main_object_color_llm_rerun_object_name.json",
+        "--save", "{repo}/outputs/cityanchor/{split}/stage1_candidates.jsonl"
+      ]
+    },
+    {
+      "name": "desc_hypergraphs",
+      "description": "Build query-side description hypergraphs from CityAnchor LLM NER output.",
+      "script": "repo://cityanchor/superGraph_for_Anchor_fianl/2_generate_desc_hypergraphs.py",
+      "inputs": [
+        {"path": "repo://data/raw/cityanchor/desc/cityanchor_val_{split}_infer_result.jsonl", "kind": "file"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/cityanchor/superGraph_for_Anchor_fianl/2_generate_desc_hypergraphs.py",
+        "--inputs", "{repo}/data/raw/cityanchor/desc/cityanchor_val_{split}_infer_result.jsonl",
+        "--output-dir", "{repo}/outputs/cityanchor/{split}/desc"
+      ]
+    },
+    {
+      "name": "bbox_hypergraphs",
+      "description": "Build candidate bbox hypergraphs aligned with stage1 candidates.",
+      "script": "repo://cityanchor/superGraph_for_Anchor_fianl/3_generate_bbox_hypergraphs_v2.py",
+      "inputs": [
+        {"path": "repo://data/raw/cityanchor/bbox", "kind": "dir"},
+        {"path": "repo://outputs/cityanchor/{split}/desc/cityanchor_val_{split}_desc_hypergraphs.jsonl", "kind": "file"},
+        {"path": "repo://outputs/cityanchor/{split}/stage1_candidates.jsonl", "kind": "file"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/cityanchor/superGraph_for_Anchor_fianl/3_generate_bbox_hypergraphs_v2.py",
+        "--bbox-root", "{repo}/data/raw/cityanchor/bbox",
+        "--desc-inputs", "{repo}/outputs/cityanchor/{split}/desc/cityanchor_val_{split}_desc_hypergraphs.jsonl",
+        "--candidate-inputs", "{repo}/outputs/cityanchor/{split}/stage1_candidates.jsonl",
+        "--output-dir", "{repo}/outputs/cityanchor/{split}/bbox_hypergraphs",
+        "--expand-factor", "4.5",
+        "--instance-inclusion-mode", "overlap",
+        "--instance-overlap-ratio", "0.03",
+        "--instance-edge-score-threshold", "0.35"
+      ]
+    },
+    {
+      "name": "geometry_mentions",
+      "description": "Extract geometry mentions used by the final v7 matcher.",
+      "script": "repo://cityanchor/new_code_for_Anchor/06_extract_geometry_mentions.py",
+      "inputs": [
+        {"path": "repo://cityanchor/data/{cityanchor_split_dir}/cityanchor_val_{split}_0324.jsonl", "kind": "file"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/cityanchor/new_code_for_Anchor/06_extract_geometry_mentions.py",
+        "--task", "{split}",
+        "--input", "{repo}/cityanchor/data/{cityanchor_split_dir}/cityanchor_val_{split}_0324.jsonl",
+        "--output", "{repo}/outputs/cityanchor/{split}/geometry_mentions.jsonl"
+      ]
+    },
+    {
+      "name": "hypergraph_match_v7",
+      "description": "Run the final geometry-aware v7 hypergraph matcher.",
+      "script": "repo://cityanchor/superGraph_for_Anchor_fianl/04_hypergraph_matchv7_with_geometrey_awrev5.py",
+      "inputs": [
+        {"path": "repo://outputs/cityanchor/{split}/stage1_candidates.jsonl", "kind": "file"},
+        {"path": "repo://outputs/cityanchor/{split}/desc/cityanchor_val_{split}_desc_hypergraphs.jsonl", "kind": "file"},
+        {"path": "repo://outputs/cityanchor/{split}/bbox_hypergraphs/cityanchor_val_{split}_desc_hypergraphs_bbox_only_hypergraphs.jsonl", "kind": "file"},
+        {"path": "repo://outputs/cityanchor/{split}/geometry_mentions.jsonl", "kind": "file"},
+        {"path": "repo://data/raw/cityanchor/bbox", "kind": "dir"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/cityanchor/superGraph_for_Anchor_fianl/04_hypergraph_matchv7_with_geometrey_awrev5.py",
+        "--task", "{split}",
+        "--override-candidates", "{repo}/outputs/cityanchor/{split}/stage1_candidates.jsonl",
+        "--override-desc", "{repo}/outputs/cityanchor/{split}/desc/cityanchor_val_{split}_desc_hypergraphs.jsonl",
+        "--override-bbox", "{repo}/outputs/cityanchor/{split}/bbox_hypergraphs/cityanchor_val_{split}_desc_hypergraphs_bbox_only_hypergraphs.jsonl",
+        "--override-geometry", "{repo}/outputs/cityanchor/{split}/geometry_mentions.jsonl",
+        "--override-bbox-dir-geometry", "{repo}/data/raw/cityanchor/bbox",
+        "--override-output", "{repo}/outputs/cityanchor/{split}/hgmatch_v7.json"
+      ]
+    },
+    {
+      "name": "dashscope_rerank",
+      "description": "Optional qwen3-vl-rerank pass over the v7 match output.",
+      "optional": true,
+      "script": "repo://cityanchor/new_code_for_Anchor/08reranking_Reranking_new.py",
+      "env_required": ["DASHSCOPE_API_KEY"],
+      "inputs": [
+        {"path": "repo://outputs/cityanchor/{split}/hgmatch_v7.json", "kind": "file"},
+        {"path": "repo://data/raw/cityanchor/context_images", "kind": "dir"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/cityanchor/new_code_for_Anchor/08reranking_Reranking_new.py",
+        "--task", "{split}",
+        "--metadata-jsonl", "{repo}/cityanchor/data/{cityanchor_split_dir}/cityanchor_val_{split}_0324.jsonl",
+        "--hgmatch-input", "{repo}/outputs/cityanchor/{split}/hgmatch_v7.json",
+        "--context-image-dir", "{repo}/data/raw/cityanchor/context_images",
+        "--output", "{repo}/outputs/cityanchor/{split}/rerank.json",
+        "--topk", "30"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,142 @@
+{
+  "name": "CityRefer full pipeline",
+  "dataset": "cityrefer",
+  "splits": ["ND", "NO"],
+  "notes": [
+    "This config describes the complete CityRefer path. The bundle already includes metadata, stage1 candidates, desc hypergraphs, bbox-only hypergraphs, and hgmatch results for replay.",
+    "From-scratch runs require CityRefer bbox JSON under data/raw/cityrefer/bbox and SAM3/SensatUrban instance artifacts under data/raw/sensaturban/instances."
+  ],
+  "stages": [
+    {
+      "name": "stage1_candidates",
+      "description": "Generate semantic/landmark/color candidate sets.",
+      "script": "repo://cityrefer/pipeline2/01_Semantic_landmark_in_stage1_new.py",
+      "inputs": [
+        {"path": "repo://cityrefer/data/Cityrefer/meta_data/0311data/CityRefer_val_{split}_0324.jsonl", "kind": "file"},
+        {"path": "repo://cityrefer/data/Cityrefer/0311data/feature/all_objects_color_per_image_tier2.jsonl", "kind": "file"},
+        {"path": "repo://data/raw/cityrefer/bbox", "kind": "dir"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/cityrefer/pipeline2/01_Semantic_landmark_in_stage1_new.py",
+        "--dataset", "{split_lower}",
+        "--jsonl", "{repo}/cityrefer/data/Cityrefer/meta_data/0311data/CityRefer_val_{split}_0324.jsonl",
+        "--bbox-dir", "{repo}/data/raw/cityrefer/bbox",
+        "--color-jsonl", "{repo}/cityrefer/data/Cityrefer/0311data/feature/all_objects_color_per_image_tier2.jsonl",
+        "--save", "{repo}/outputs/cityrefer/{split}/stage1_candidates.jsonl"
+      ]
+    },
+    {
+      "name": "stage1_eval_log",
+      "description": "Convert stage1 candidate JSONL to the evaluation-log format used by the remote hypergraph matcher.",
+      "script": "repo://external/sam3_segment/tools/convert_candidates_to_eval_log.py",
+      "inputs": [
+        {"path": "repo://outputs/cityrefer/{split}/stage1_candidates.jsonl", "kind": "file"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/external/sam3_segment/tools/convert_candidates_to_eval_log.py",
+        "--input", "{repo}/outputs/cityrefer/{split}/stage1_candidates.jsonl",
+        "--output", "{repo}/outputs/cityrefer/{split}/evaluation_log.json"
+      ]
+    },
+    {
+      "name": "desc_hypergraphs",
+      "description": "Build query-side description hypergraphs from LLM NER output.",
+      "script": "repo://cityrefer/superGraph/2_generate_desc_hypergraphs.py",
+      "inputs": [
+        {"path": "repo://data/raw/cityrefer/desc/CityRefer_val_{split}_infer_result.jsonl", "kind": "file"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/cityrefer/superGraph/2_generate_desc_hypergraphs.py",
+        "--input", "{repo}/data/raw/cityrefer/desc/CityRefer_val_{split}_infer_result.jsonl",
+        "--output", "{repo}/outputs/cityrefer/{split}/desc_hypergraphs.jsonl"
+      ]
+    },
+    {
+      "name": "bbox_hypergraphs",
+      "description": "Build candidate-side bbox hypergraphs from bbox JSON and SAM3 instance artifacts.",
+      "script": "repo://external/sam3_segment/core/generate_bbox_hypergraphs_v2.py",
+      "inputs": [
+        {"path": "repo://data/raw/cityrefer/bbox", "kind": "dir"},
+        {"path": "repo://data/raw/sensaturban/instances", "kind": "dir"},
+        {"path": "repo://outputs/cityrefer/{split}/desc_hypergraphs.jsonl", "kind": "file"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/external/sam3_segment/core/generate_bbox_hypergraphs_v2.py",
+        "--box3d_root", "{repo}/data/raw/cityrefer/bbox",
+        "--instance_root", "{repo}/data/raw/sensaturban/instances",
+        "--desc_hypergraphs", "{repo}/outputs/cityrefer/{split}/desc_hypergraphs.jsonl",
+        "--output_dir", "{repo}/outputs/cityrefer/{split}/bbox_hypergraphs",
+        "--expand_factor", "3.0",
+        "--instance_inclusion_mode", "overlap",
+        "--instance_overlap_ratio", "0.1",
+        "--instance_edge_score_threshold", "0.5"
+      ]
+    },
+    {
+      "name": "hypergraph_match",
+      "description": "Run the full directory-based hypergraph matcher from the SAM3/Stage1 workspace.",
+      "script": "repo://external/sam3_segment/core/match_hypergraphs.py",
+      "inputs": [
+        {"path": "repo://outputs/cityrefer/{split}/evaluation_log.json", "kind": "file"},
+        {"path": "repo://outputs/cityrefer/{split}/desc_hypergraphs.jsonl", "kind": "file"},
+        {"path": "repo://outputs/cityrefer/{split}/bbox_hypergraphs", "kind": "dir"},
+        {"path": "repo://cityrefer/data/Cityrefer/meta_data/0311data/CityRefer_val_{split}_0324.jsonl", "kind": "file"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/external/sam3_segment/core/match_hypergraphs.py",
+        "--evaluation_log", "{repo}/outputs/cityrefer/{split}/evaluation_log.json",
+        "--desc_hypergraphs", "{repo}/outputs/cityrefer/{split}/desc_hypergraphs.jsonl",
+        "--bbox_hypergraphs_dir", "{repo}/outputs/cityrefer/{split}/bbox_hypergraphs",
+        "--val_json", "{repo}/cityrefer/data/Cityrefer/meta_data/0311data/CityRefer_val_{split}_0324.jsonl",
+        "--output", "{repo}/outputs/cityrefer/{split}/hgmatch.json",
+        "--summary", "{repo}/outputs/cityrefer/{split}/hgmatch_summary.json",
+        "--fusion_lambda", "1.0",
+        "--save_results", "1"
+      ]
+    },
+    {
+      "name": "bundle_replay_hgmatch",
+      "description": "Replay the bundled JSONL hypergraph match artifacts without raw bbox/SAM3 dependencies.",
+      "script": "repo://cityrefer/superGraph/04_hypergraph_match.py",
+      "inputs": [
+        {"path": "repo://cityrefer/data/Cityrefer/meta_data/0311data/CityRefer_val_{split}_0421_stage1_candidates.jsonl", "kind": "file"},
+        {"path": "repo://cityrefer/data/Cityrefer/0412/desc/CityRefer_val_{split}_desc_hypergraphs.jsonl", "kind": "file"},
+        {"path": "repo://cityrefer/data/Cityrefer/0412/desc_bbox_hypergraphs/CityRefer_val_{split}_desc_hypergraphs_bbox_only_hypergraphs.jsonl", "kind": "file"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/cityrefer/superGraph/04_hypergraph_match.py",
+        "--candidates", "{repo}/cityrefer/data/Cityrefer/meta_data/0311data/CityRefer_val_{split}_0421_stage1_candidates.jsonl",
+        "--desc_hypergraphs", "{repo}/cityrefer/data/Cityrefer/0412/desc/CityRefer_val_{split}_desc_hypergraphs.jsonl",
+        "--bbox_hypergraphs", "{repo}/cityrefer/data/Cityrefer/0412/desc_bbox_hypergraphs/CityRefer_val_{split}_desc_hypergraphs_bbox_only_hypergraphs.jsonl",
+        "--output", "{repo}/outputs/cityrefer/{split}/bundle_hgmatch.json"
+      ]
+    },
+    {
+      "name": "dashscope_rerank",
+      "description": "Optional qwen3-vl-rerank pass over hypergraph-match results.",
+      "optional": true,
+      "script": "repo://cityrefer/pipeline2/05reranking_Reranking_fused.py",
+      "env_required": ["DASHSCOPE_API_KEY"],
+      "inputs": [
+        {"path": "repo://outputs/cityrefer/{split}/hgmatch.json", "kind": "file"},
+        {"path": "repo://data/raw/cityrefer/context_images", "kind": "dir"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/cityrefer/pipeline2/05reranking_Reranking_fused.py",
+        "--task", "{split}",
+        "--metadata-jsonl", "{repo}/cityrefer/data/Cityrefer/meta_data/0311data/CityRefer_val_{split}_0324.jsonl",
+        "--hgmatch-input", "{repo}/outputs/cityrefer/{split}/hgmatch.json",
+        "--context-image-dir", "{repo}/data/raw/cityrefer/context_images",
+        "--output", "{repo}/outputs/cityrefer/{split}/rerank.json",
+        "--topk", "10"
+      ]
+    }
+  ]
+}
