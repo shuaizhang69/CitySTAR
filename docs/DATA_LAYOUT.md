@@ -16,6 +16,10 @@ data/raw/
       CityRefer_val_NO_infer_result.jsonl
     context_images/
   cityanchor/
+    instances/
+      <scene>.txt
+      <scene>_building.txt
+      <scene>_tree.txt
     bbox/
       <scene>_bbox.json
     desc/
@@ -68,3 +72,7 @@ Use `/mnt/shuaizhang_data/CityRefer_1/data` instead.
 CityAnchor is not fully mapped on that server. Only STPLS3D raw/txt data and
 `cityanchor_val_ND.json` were found; the full final ND/NO artifacts should still
 be placed under `data/raw/cityanchor/` for this repository.
+
+Use `scripts/instances_to_bbox.py` to generate `data/raw/cityanchor/bbox/` from
+`data/raw/cityanchor/instances/` when instance-segmentation outputs are
+available.

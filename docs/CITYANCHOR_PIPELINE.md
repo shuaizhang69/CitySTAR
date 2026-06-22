@@ -25,12 +25,22 @@ cityanchor/data/city_Anchor/main_object_color_llm_rerun_object_name.json
 External inputs for from-scratch runs:
 
 ```text
+data/raw/cityanchor/instances/
 data/raw/cityanchor/bbox/
 data/raw/cityanchor/desc/cityanchor_val_{ND,NO}_infer_result.jsonl
 data/raw/cityanchor/context_images/
 ```
 
 ## Stages
+
+0. `bbox_from_instances`
+
+   Runs `scripts/instances_to_bbox.py`.
+   It converts instance-segmentation point outputs into the bbox JSON consumed
+   by stage1 and bbox-hypergraph construction. The converter supports `.txt`,
+   `.csv`, `.npy`, and `.ply` inputs. For STPLS3D-style text files, the default
+   assumes `x y z ... instance_id`, so the last column is preserved as
+   `object_id`.
 
 1. `stage1_candidates`
 

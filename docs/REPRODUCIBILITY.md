@@ -26,6 +26,8 @@ Full from-zero runs require external assets:
 
 - CityRefer and CityAnchor metadata and bbox JSON roots.
 - SensatUrban or STPLS3D point clouds.
+- CityAnchor instance-segmentation outputs can be converted to bbox JSON with
+  `scripts/instances_to_bbox.py`.
 - SAM3 model package and weights.
 - Rendered context images for VLM/rerank stages.
 - API keys for regenerated LLM extraction or DashScope reranking.

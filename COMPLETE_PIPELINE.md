@@ -50,7 +50,9 @@ python scripts/run_pipeline.py run --dataset cityrefer --split ND --stage bundle
 ## CityAnchor
 
 ```text
-metadata + bbox + color tiers + query color map
+instance segmentation point outputs
+  -> bbox JSON
+  -> metadata + color tiers + query color map
   -> color-aware stage1 candidates
   -> description hypergraphs
   -> bbox-only candidate hypergraphs
@@ -65,7 +67,8 @@ See `docs/CITYANCHOR_PIPELINE.md`.
 
 From-scratch runs still require large, non-committed assets under `data/raw/`:
 
-- CityRefer / CityAnchor bbox JSON roots.
+- CityRefer / CityAnchor bbox JSON roots, or CityAnchor instance outputs that
+  can be converted with `scripts/instances_to_bbox.py`.
 - LLM NER outputs used to build description hypergraphs.
 - SAM3 point clouds, masks, instance PLY files, and checkpoints.
 - Context images for VLM/rerank stages.

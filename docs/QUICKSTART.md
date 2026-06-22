@@ -53,3 +53,13 @@ This stage uses bundled JSON/JSONL artifacts and writes
 Populate `data/raw/` before running full CityRefer, CityAnchor, or SAM3 stages.
 See `docs/DATA_LAYOUT.md`, `docs/CITYREFER_PIPELINE.md`,
 `docs/CITYANCHOR_PIPELINE.md`, and `docs/SAM3_UPSTREAM.md`.
+
+For CityAnchor, bbox JSON can be generated directly from instance-segmentation
+outputs:
+
+```bash
+python scripts/instances_to_bbox.py \
+  --input-root data/raw/cityanchor/instances \
+  --output-dir data/raw/cityanchor/bbox \
+  --recursive
+```

@@ -12,5 +12,7 @@ Before publishing:
 - Run `python scripts/run_pipeline.py doctor --dataset cityrefer --split ND`.
 - Run `python scripts/run_pipeline.py doctor --dataset cityanchor --split ND`.
 - Document exact external dataset download/preparation steps.
+- For CityAnchor releases, document whether bbox JSON is supplied directly or
+  generated with `scripts/instances_to_bbox.py`.
 - Document SAM3 checkpoint sources and compatible CUDA/PyTorch versions.
 - Keep CI green with `python scripts/check_project.py`.

@@ -4,10 +4,30 @@
   "splits": ["ND", "NO"],
   "notes": [
     "CityAnchor uses a tighter color-aware stage1 candidate generator, bbox-only hypergraphs, geometry mentions, and the final v7 geometry-aware matcher.",
-    "The bundle includes ND/NO metadata and color files, but raw bbox JSON and generated desc/bbox hypergraphs are not bundled.",
+    "The bundle includes ND/NO metadata and color files, but raw instance outputs, generated bbox JSON, and generated desc/bbox hypergraphs are not bundled.",
     "Remote audit: zhangshuai server has STPLS3D raw/txt data and one cityanchor_val_ND.json file, but the full final CityAnchor v7 workspace was not found."
   ],
   "stages": [
+    {
+      "name": "bbox_from_instances",
+      "description": "Convert instance-segmentation point outputs into CityAnchor bbox JSON.",
+      "optional": true,
+      "script": "repo://scripts/instances_to_bbox.py",
+      "inputs": [
+        {"path": "repo://data/raw/cityanchor/instances", "kind": "dir"}
+      ],
+      "command": [
+        "{python}",
+        "{repo}/scripts/instances_to_bbox.py",
+        "--input-root", "{repo}/data/raw/cityanchor/instances",
+        "--output-dir", "{repo}/data/raw/cityanchor/bbox",
+        "--recursive",
+        "--xyz-cols", "0,1,2",
+        "--instance-col", "-1",
+        "--object-id-mode", "preserve",
+        "--duplicate-id-policy", "error"
+      ]
+    },
     {
       "name": "stage1_candidates",
       "description": "Generate color-aware stage1 candidates.",

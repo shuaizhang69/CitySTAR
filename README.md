@@ -137,6 +137,17 @@ python scripts/run_pipeline.py run --dataset cityrefer --split ND --stage bundle
 python scripts/run_pipeline.py run --dataset cityanchor --split ND --from-stage stage1_candidates --to-stage hypergraph_match_v7
 ```
 
+Generate CityAnchor bbox JSON from instance-segmentation point outputs:
+
+```bash
+python scripts/instances_to_bbox.py \
+  --input-root data/raw/cityanchor/instances \
+  --output-dir data/raw/cityanchor/bbox \
+  --recursive \
+  --xyz-cols 0,1,2 \
+  --instance-col -1
+```
+
 Installed console script equivalent:
 
 ```bash
@@ -174,7 +185,9 @@ metadata + bbox + color features
 CityAnchor downstream path:
 
 ```text
-metadata + bbox + color features + query color map
+metadata + instance outputs
+  -> bbox JSON
+  -> color features + query color map
   -> color-aware stage1 candidates
   -> description hypergraphs
   -> bbox-only hypergraphs
